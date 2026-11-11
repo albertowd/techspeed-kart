@@ -1,9 +1,8 @@
 # Builds the full fleet (36 liveries per version, tools/build_all.py --release) when a release is published and
 # attaches the two archives to it. Local builds carry one livery per kart.
 #
-# Needs the repository variable GOKART_SFX_URL: a download link to the GoKart 0.5c mod archive (GoKart_0.5c.7z),
-# whose sound banks the AC karts use. They are not ours to redistribute, so they are not in the repository; the
-# release build stops without them rather than ship silent karts.
+# The AC karts use the sound banks of the GoKart 0.5c mod: its archive is in the repository (Git LFS) as
+# references/GoKart_0.5c.7z, and the release build stops without it rather than ship silent karts.
 name: release
 
 on:
@@ -36,13 +35,10 @@ jobs:
           $tag = "${{ github.event.release.tag_name }}".TrimStart("v")
           if ($ver -ne $tag) { throw "release tag $tag does not match OVERTAKE.md version $ver" }
 
-      - name: Fetch the AC sound banks
+      - name: Extract the AC sound banks
         shell: pwsh
-        env:
-          GOKART_SFX_URL: ${{ vars.GOKART_SFX_URL }}
         run: |
-          if (-not $env:GOKART_SFX_URL) { throw "the GOKART_SFX_URL repository variable is not set" }
-          Invoke-WebRequest -Uri $env:GOKART_SFX_URL -OutFile references/GoKart_0.5c.7z
+          if (-not (Test-Path references/GoKart_0.5c.7z)) { throw "references/GoKart_0.5c.7z is missing" }
           7z x references/GoKart_0.5c.7z -oreference/GoKart_0.5c gokart125/sfx gokart390/sfx -r
 
       - name: Build both games with every livery

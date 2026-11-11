@@ -9,12 +9,12 @@ For what the mod is and how to install it, see the [README](README.md).
 |---|---|
 | `source/` | The karts' sources: `rental/` (v2) and `rental_v1/`, each a multi-piece `.blend` (with an `.fbx` copy) and its textures (with kart 1's livery), and `logos/` (the Velopark logo the liveries carry). Both games are built from these. See [Sources](#sources). |
 | `tools/` | Python scripts that make the sources, convert them to each game, paint the liveries and render the pictures. `tools/dev/` holds the checks and the photo-matching tools. |
-| `references/` | Photos and videos of the real karts the model is made from, and the GoKart 0.5c mod archive. |
+| `references/` | Photos and videos of the real karts the model is made from, and the GoKart 0.5c mod archive (`GoKart_0.5c.7z`, whose sound banks the Assetto Corsa karts use; downloaded from [overtake.gg](https://www.overtake.gg/threads/gokart.138738/); replace it here when GoKart is updated there). |
 | `docs/` | The pictures in the README, which the overtake.gg page uses too. |
 | `overtake/` | The overtake.gg description; its `Version:` line is the mod's version. |
 | `.github/workflows/` | The release build. |
 
-The `.blend`, `.fbx`, `.kn5` and `.dds` files and the source textures are stored with Git LFS. Install
+The `.blend`, `.fbx`, `.kn5`, `.dds` and `.7z` files and the source textures are stored with Git LFS. Install
 [Git LFS](https://git-lfs.com) before cloning.
 
 ## Setting up
@@ -55,8 +55,8 @@ hand to try them (see the README).
 A local build carries one livery per kart (number 1 of each fleet), to keep it quick. The full fleets are built only
 for a release: publishing a GitHub release runs `.github/workflows/release.yml`, which builds with `--release` and
 attaches both archives to the release. The release tag must match the version in `overtake/OVERTAKE.md` (`v0.1.0` or
-`0.1.0`), and the workflow needs the repository variable `GOKART_SFX_URL`, a download link to `GoKart_0.5c.7z` for the
-AC sound banks (`--release` stops without them rather than ship silent karts).
+`0.1.0`), and the workflow takes the AC sound banks from `references/GoKart_0.5c.7z` (`--release` stops without them rather
+than ship silent karts).
 
 | Kart | AC folder | BeamNG config |
 |---|---|---|
