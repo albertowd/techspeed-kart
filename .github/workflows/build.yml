@@ -28,7 +28,7 @@ env:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 300
+    timeout-minutes: 240
     permissions:
       contents: write
     defaults:
@@ -81,6 +81,12 @@ jobs:
             exit 1
           fi
           7z x references/GoKart_0.5c.7z -oreference/GoKart_0.5c gokart125/sfx gokart390/sfx -r -y 2>&1 | tee -a ci.log
+          for kart in gokart125 gokart390; do
+            if [ ! -f "reference/GoKart_0.5c/$kart/sfx/$kart.bank" ]; then
+              echo "::error title=Sound banks missing::$kart.bank was not extracted; got: $(find reference -type f | tr '\n' ' ')"
+              exit 1
+            fi
+          done
           find reference/GoKart_0.5c -type f | tee -a ci.log
 
       - name: Build both games

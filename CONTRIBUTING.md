@@ -12,7 +12,7 @@ For what the mod is and how to install it, see the [README](README.md).
 | `references/` | Photos and videos of the real karts the model is made from, and the GoKart 0.5c mod archive (`GoKart_0.5c.7z`, whose sound banks the Assetto Corsa karts use; downloaded from [overtake.gg](https://www.overtake.gg/threads/gokart.138738/); replace it here when GoKart is updated there). |
 | `docs/` | The pictures in the README, which the overtake.gg page uses too. |
 | `overtake/` | The overtake.gg description; its `Version:` line is the mod's version. |
-| `.github/workflows/` | The release build. |
+| `.github/workflows/` | The build on every push and the release build from a version tag. |
 
 The `.blend`, `.fbx`, `.kn5`, `.dds` and `.7z` files and the source textures are stored with Git LFS. Install
 [Git LFS](https://git-lfs.com) before cloning.
@@ -52,11 +52,19 @@ It makes, with the version from `overtake/OVERTAKE.md`:
 Nothing is copied into the games; the unpacked builds are in `build/ac` and `build/beamng`. Install the archives by
 hand to try them (see the README).
 
-A local build carries one livery per kart (number 1 of each fleet), to keep it quick. The full fleets are built only
-for a release: publishing a GitHub release runs `.github/workflows/release.yml`, which builds with `--release` and
-attaches both archives to the release. The release tag must match the version in `overtake/OVERTAKE.md` (`v0.1.0` or
-`0.1.0`), and the workflow takes the AC sound banks from `references/GoKart_0.5c.7z` (`--release` stops without them rather
-than ship silent karts).
+A local build carries one livery per kart (number 1 of each fleet), to keep it quick. `.github/workflows/build.yml`
+makes the same build on every push and keeps the two archives as the run's artifact for 14 days. The full fleets are
+built only for a release: set the new version in `overtake/OVERTAKE.md`, commit, and push a tag `v<version>`:
+
+```
+git tag v0.1.1
+git push origin main v0.1.1
+```
+
+The workflow then builds with `--release` and publishes the GitHub release with both archives attached (or adds them
+to the release if it already exists). It stops if the tag doesn't match the version in `overtake/OVERTAKE.md`, and it
+takes the AC sound banks from `references/GoKart_0.5c.7z` (`--release` stops without them rather than ship silent
+karts). If a build fails, the end of its output is shown as an annotation on the run's summary page.
 
 | Kart | AC folder | BeamNG config |
 |---|---|---|

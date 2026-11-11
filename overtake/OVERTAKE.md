@@ -1,5 +1,5 @@
 Title: techspeed-kart
-Version: 0.1.0
+Version: 0.1.1
 Tag line: The Techspeed rental (9, 11 and 13 hp) and 125cc racing karts, for Assetto Corsa and BeamNG.drive.
 
 ----- paste everything below into the description -----
