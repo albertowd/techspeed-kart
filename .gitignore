@@ -1,0 +1,28 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Build output (regenerate with: python tools/build_all.py)
+build/
+
+# Extracted third-party / game files (the GoKart mod files the AC build uses, vanilla BeamNG
+# vehicles to compare with). Not ours to redistribute and regenerable from the originals.
+reference/
+
+# Third-party mod archive kept locally next to the photos
+references/*.7z
+
+# Blender backups and FBX texture copies (the .blend + textures/ are the real source)
+*.blend1
+*.blend2
+source/*/*.fbm/
+
+# The liveries are painted by each build into build/skins (tools/paint_skins.py), never kept in the source
+source/*/textures/skins/
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
