@@ -1,0 +1,122 @@
+# Builds the karts on every push (one livery per kart, as a local build) and keeps the archives as a workflow
+# artifact. Pushing a tag v<version> (matching the Version: line of overtake/OVERTAKE.md) builds the full fleet
+# instead (36 liveries per version, tools/build_all.py --release) and publishes the GitHub release with both
+# archives attached.
+#
+# The AC karts use the sound banks of the GoKart 0.5c mod: its archive is in the repository (Git LFS) as
+# references/GoKart_0.5c.7z, and the release build stops without it rather than ship silent karts.
+name: build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+env:
+  RELEASE: ${{ github.ref_type == 'tag' }}
+  PYTHONUNBUFFERED: "1"
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 300
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      # Git LFS files come from the cache when they haven't changed, to spare the LFS bandwidth
+      - name: List the Git LFS files
+        run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-assets-id
+
+      - name: Restore the Git LFS cache
+        uses: actions/cache@v6
+        with:
+          path: .git/lfs
+          key: lfs-${{ hashFiles('.lfs-assets-id') }}
+          restore-keys: lfs-
+
+      - name: Fetch the Git LFS files
+        run: git lfs pull
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install the tools' packages
+        run: |
+          python -m pip install --upgrade pip 2>&1 | tee -a ci.log
+          python -m pip install -r requirements.txt 2>&1 | tee -a ci.log
+          python -c "import bpy, numpy, PIL; print('Blender', bpy.app.version_string, '| numpy', numpy.__version__, '| Pillow', PIL.__version__)" 2>&1 | tee -a ci.log
+
+      - name: Check the tag against the version in overtake/OVERTAKE.md
+        if: env.RELEASE == 'true'
+        run: |
+          ver=$(sed -n 's/^Version:[[:space:]]*\([^[:space:]]*\).*/\1/p' overtake/OVERTAKE.md | head -n 1)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$ver" != "$tag" ]; then
+            echo "::error title=Version mismatch::tag $GITHUB_REF_NAME does not match OVERTAKE.md version $ver"
+            exit 1
+          fi
+          echo "version $ver"
+
+      - name: Extract the AC sound banks
+        run: |
+          if [ ! -f references/GoKart_0.5c.7z ]; then
+            echo "::error title=Sound banks missing::references/GoKart_0.5c.7z is missing"
+            exit 1
+          fi
+          7z x references/GoKart_0.5c.7z -oreference/GoKart_0.5c gokart125/sfx gokart390/sfx -r -y 2>&1 | tee -a ci.log
+          find reference/GoKart_0.5c -type f | tee -a ci.log
+
+      - name: Build both games
+        run: |
+          flags=""
+          if [ "$RELEASE" = "true" ]; then flags="--release"; fi
+          python tools/build_all.py $flags 2>&1 | tee -a ci.log
+          ls -l build/dist
+
+      # the job log needs signing in to read, so the end of the output is also shown as an annotation
+      - name: Show the end of the output on failure
+        if: failure() && hashFiles('ci.log') != ''
+        shell: python
+        run: |
+          with open("ci.log", encoding="utf-8", errors="replace") as f:
+              tail = f.read().splitlines()[-60:]
+          msg = "\n".join(tail).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print("::error title=Build failed::" + msg)
+
+      - name: Keep the archives
+        if: env.RELEASE != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: techspeed-kart-${{ github.sha }}
+          path: build/dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish the release
+        if: env.RELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" build/dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" build/dist/* --title "techspeed-kart $ver" --generate-notes --verify-tag
+          fi
