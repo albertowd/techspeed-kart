@@ -55,7 +55,7 @@ hand to try them (see the README).
 A local build carries one livery per kart (number 1 of each fleet), to keep it quick. The full fleets are built only
 for a release: publishing a GitHub release runs `.github/workflows/release.yml`, which builds with `--release` and
 attaches both archives to the release. The release tag must match the version in `overtake/OVERTAKE.md` (`v0.1.0` or
-`0.1.0`), and the workflow needs the repository secret `GOKART_SFX_URL`, a download link to `GoKart_0.5c.7z` for the
+`0.1.0`), and the workflow needs the repository variable `GOKART_SFX_URL`, a download link to `GoKart_0.5c.7z` for the
 AC sound banks (`--release` stops without them rather than ship silent karts).
 
 | Kart | AC folder | BeamNG config |

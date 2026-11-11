@@ -1,7 +1,7 @@
 # Builds the full fleet (36 liveries per version, tools/build_all.py --release) when a release is published and
 # attaches the two archives to it. Local builds carry one livery per kart.
 #
-# Needs the repository secret GOKART_SFX_URL: a download link to the GoKart 0.5c mod archive (GoKart_0.5c.7z),
+# Needs the repository variable GOKART_SFX_URL: a download link to the GoKart 0.5c mod archive (GoKart_0.5c.7z),
 # whose sound banks the AC karts use. They are not ours to redistribute, so they are not in the repository; the
 # release build stops without them rather than ship silent karts.
 name: release
@@ -39,9 +39,9 @@ jobs:
       - name: Fetch the AC sound banks
         shell: pwsh
         env:
-          GOKART_SFX_URL: ${{ secrets.GOKART_SFX_URL }}
+          GOKART_SFX_URL: ${{ vars.GOKART_SFX_URL }}
         run: |
-          if (-not $env:GOKART_SFX_URL) { throw "the GOKART_SFX_URL secret is not set" }
+          if (-not $env:GOKART_SFX_URL) { throw "the GOKART_SFX_URL repository variable is not set" }
           Invoke-WebRequest -Uri $env:GOKART_SFX_URL -OutFile references/GoKart_0.5c.7z
           7z x references/GoKart_0.5c.7z -oreference/GoKart_0.5c gokart125/sfx gokart390/sfx -r
 
