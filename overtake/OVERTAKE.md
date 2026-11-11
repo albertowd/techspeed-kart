@@ -1,5 +1,5 @@
 Title: techspeed-kart
-Version: 0.1.1
+Version: 0.1.2
 Tag line: The Techspeed rental (9, 11 and 13 hp) and 125cc racing karts, for Assetto Corsa and BeamNG.drive.
 
 ----- paste everything below into the description -----
@@ -49,9 +49,9 @@ The Techspeed karts raced at Velopark, Brazil: the rental kart with its steel pe
 
 [HEADING=2]Installing[/HEADING]
 
-[B]Assetto Corsa:[/B] extract the [B]techspeed-kart-<version>-ac[/B] 7z into the [B]assettocorsa[/B] folder; it adds the six [B]techspeed_rental_*[/B] cars to [B]content/cars[/B].
+[B]Assetto Corsa:[/B] extract the [B]techspeed_kart_ac.7z[/B] into the [B]assettocorsa[/B] folder; it adds the six [B]techspeed_rental_*[/B] cars to [B]content/cars[/B].
 
-[B]BeamNG.drive:[/B] put the [B]techspeed-kart-<version>-beamng[/B] zip in BeamNG's [B]mods[/B] folder, then pick Techspeed Kart in the vehicle list; the six rentals are its configurations.
+[B]BeamNG.drive:[/B] put the [B]techspeed_kart_beamng.zip[/B] in BeamNG's [B]mods[/B] folder, then pick Techspeed Kart in the vehicle list; the six rentals are its configurations.
 
 The karts were made for the Techspeed Velopark track, also on overtake.gg.
 

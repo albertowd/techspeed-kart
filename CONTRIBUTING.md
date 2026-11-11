@@ -11,7 +11,7 @@ For what the mod is and how to install it, see the [README](README.md).
 | `tools/` | Python scripts that make the sources, convert them to each game, paint the liveries and render the pictures. `tools/dev/` holds the checks and the photo-matching tools. |
 | `references/` | Photos and videos of the real karts the model is made from, and the GoKart 0.5c mod archive (`GoKart_0.5c.7z`, whose sound banks the Assetto Corsa karts use; downloaded from [overtake.gg](https://www.overtake.gg/threads/gokart.138738/); replace it here when GoKart is updated there). |
 | `docs/` | The pictures in the README, which the overtake.gg page uses too. |
-| `overtake/` | The overtake.gg description; its `Version:` line is the mod's version. |
+| `overtake/` | The overtake.gg description; its `Version:` line is the mod's version. `CHANGELOG.md`, in the root folder, lists what changed in each version. |
 | `.github/workflows/` | The build on every push and the release build from a version tag. |
 
 The `.blend`, `.fbx`, `.kn5`, `.dds` and `.7z` files and the source textures are stored with Git LFS. Install
@@ -43,10 +43,11 @@ They also read files that are kept out of the repository:
 .venv\Scripts\python tools\render_docs.py               # the pictures in docs/
 ```
 
-It makes, with the version from `overtake/OVERTAKE.md`:
+It makes, with the same names in every version (BeamNG's rule for mod zips: letters, digits, `-` and `_` only,
+no version, so an update replaces the old zip in the mods folder):
 
-- `build/dist/techspeed-kart-<version>-ac.7z`: the six Assetto Corsa rentals as `content/cars/<kart>`.
-- `build/dist/techspeed-kart-<version>-beamng.zip`: one BeamNG.drive vehicle (`vehicles/techspeed_kart`) with the
+- `build/dist/techspeed_kart_ac.7z`: the six Assetto Corsa rentals as `content/cars/<kart>`.
+- `build/dist/techspeed_kart_beamng.zip`: one BeamNG.drive vehicle (`vehicles/techspeed_kart`) with the
   six rentals as configurations.
 
 Nothing is copied into the games; the unpacked builds are in `build/ac` and `build/beamng`. Install the archives by
@@ -54,17 +55,20 @@ hand to try them (see the README).
 
 A local build carries one livery per kart (number 1 of each fleet), to keep it quick. `.github/workflows/build.yml`
 makes the same build on every push and keeps the two archives as the run's artifact for 14 days. The full fleets are
-built only for a release: set the new version in `overtake/OVERTAKE.md`, commit, and push a tag `v<version>`:
+built only for a release: set the new version in `overtake/OVERTAKE.md`, turn `[Unreleased]` in `CHANGELOG.md` into
+`## [<version>] - <date>` (with a new empty `[Unreleased]` above it and the compare links at the bottom), commit, and
+push a tag `v<version>`:
 
 ```
 git tag v0.1.1
 git push origin main v0.1.1
 ```
 
-The workflow then builds with `--release` and publishes the GitHub release with both archives attached (or adds them
-to the release if it already exists). It stops if the tag doesn't match the version in `overtake/OVERTAKE.md`, and it
-takes the AC sound banks from `references/GoKart_0.5c.7z` (`--release` stops without them rather than ship silent
-karts). If a build fails, the end of its output is shown as an annotation on the run's summary page.
+The workflow then builds with `--release` and publishes the GitHub release, titled with the version, with the
+version's `CHANGELOG.md` section as its notes and both archives attached (or adds them to the release if it already
+exists). It stops if the tag doesn't match the version in `overtake/OVERTAKE.md` or the changelog has no section for
+it, and it takes the AC sound banks from `references/GoKart_0.5c.7z` (`--release` stops without them rather than ship
+silent karts). If a build fails, the end of its output is shown as an annotation on the run's summary page.
 
 | Kart | AC folder | BeamNG config |
 |---|---|---|
@@ -124,6 +128,13 @@ from the driver's bones, kept in `tools/driver_80_skeleton.json` (refresh it fro
   `CONSUMPTION`; `export_ac` works it out from the consumption. Without it the AI reckoned a tank lasted one lap,
   pitted on lap 1 and was marked retired. AC's `log.txt` shows the plan (`Max laps with max fuel`).
 
+Each AC kart has four levels of detail (`export_ac.AC_LODS`, listed in `data/lods.ini`): the full model up to 12 m,
+then `_LOD_B` (to 40 m), `_LOD_C` (to 150 m) and `_LOD_D`. `blender_bridge.collect` bakes them from the same source:
+Subdivision levels lowered, Bevels left out in the far ones, small parts and loose pieces (bolts, nuts) dropped, and
+the rest decimated before its Solidify, never under a floor of triangles per part (flat, low-poly mouldings like the
+nose break apart below it). Their meshes are merged per node and material, and the steering wheel's node is
+`STEER_LR`, as in Kunos' LODs. BeamNG.drive vehicles have no mesh LODs (the stock ones carry none either).
+
 `tools/export_beamng.py` writes the Collada meshes and the jbeam: a rigid steel frame with the driver's weight on the
 seat, spindles that steer about the kingpins, a centrifugal clutch (with BeamNG's own clutch heat), a solid rear axle
 and no gearbox device, and the plastic bodywork as its own light, softly mounted part, so only it shakes. The driver
@@ -140,6 +151,8 @@ camera isn't treated as inside a cabin, so the onboard sound isn't muffled.
 - `tools/dev/photo_match.py`: renders the source from the cameras of the studio and track photos (fitted to the wheels
   and hubs) and puts each photo over its render in `build/renders/match/<tag>/`; `--set outline=<parts>|<parts>` draws
   each group's silhouette over the photo, the most reliable way to compare shapes.
+- `tools/dev/lod_check.py <variant>`: the four AC LODs side by side with their triangle counts
+  (`build/renders/<variant>_lods.jpg`); look at it after changing `AC_LODS` or a part's modifiers.
 - `tools/dev/photo_triangulate.py`: a point's position from its pixels in two or more of those photos;
   `tools/dev/photo_unproject.py`: where a pixel lands on a known plane.
 
@@ -160,4 +173,4 @@ camera isn't treated as inside a cabin, so the onboard sound isn't muffled.
 - In BeamNG.drive the fuel burn comes from the engine's power and efficiency, so a tank lasts ~3 hours instead of the
   real ~45-55 minutes.
 - In BeamNG.drive, the steering wheel's direction and the driver camera still need a look.
-- No LODs and no damage model.
+- No damage model, and no LODs in BeamNG.drive. The AC LODs are not yet seen in game.

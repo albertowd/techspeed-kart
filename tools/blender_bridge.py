@@ -174,11 +174,81 @@ def _mat_name(obj, idx):
     return "black_plastic"
 
 
-def collect():
+def _evaluate(obj):
+    dg = bpy.context.evaluated_depsgraph_get()
+    dg.update()
+    return bpy.data.meshes.new_from_object(obj.evaluated_get(dg))
+
+
+def _evaluated_mesh(obj, lod):
+    """The object's mesh with its modifiers applied. For a LOD (dict(ratio, min_tris, drop, subsurf, bevel)), its
+    Subdivision modifiers are held to lod["subsurf"] levels, its Bevels left out unless lod["bevel"], and it is
+    decimated to lod["ratio"] of its triangles (never under lod["min_tris"]) by a Decimate modifier added for the
+    moment before its Solidify and Bevel, so a shell keeps two even sides. The object is left as it was."""
+    if not lod:
+        return _evaluate(obj)
+    saved = []
+    for m in obj.modifiers:
+        if m.type == "SUBSURF" and m.levels > lod["subsurf"]:
+            saved.append((m, "levels", m.levels))
+            m.levels = lod["subsurf"]
+        elif m.type == "BEVEL" and not lod["bevel"] and m.show_viewport:
+            saved.append((m, "show_viewport", True))
+            m.show_viewport = False
+    try:
+        me = _evaluate(obj)
+        me.calc_loop_triangles()
+        nt = len(me.loop_triangles)
+        ratio = max(lod["ratio"], lod["min_tris"] / max(nt, 1))
+        if ratio >= 0.999 or len(obj.data.polygons) <= 4:     # Decimate needs more than 3 faces
+            return me
+        bpy.data.meshes.remove(me)
+        mod = obj.modifiers.new("_lod", "DECIMATE")
+        mod.decimate_type = "COLLAPSE"
+        mod.ratio = ratio
+        mod.use_collapse_triangulate = True
+        shell = [i for i, m in enumerate(obj.modifiers) if m.type in ("SOLIDIFY", "BEVEL")]
+        if shell:
+            obj.modifiers.move(len(obj.modifiers) - 1, shell[0])
+        try:
+            return _evaluate(obj)
+        finally:
+            obj.modifiers.remove(mod)
+    finally:
+        for m, attr, value in saved:
+            setattr(m, attr, value)
+
+
+def _large_parts(tri_verts, co, drop):
+    """Mask of the triangles that belong to loose parts (connected pieces of the mesh) at least `drop` metres
+    across: the bolts of a bolt set, the nuts on a rim, too small to see from a LOD's distance."""
+    n = len(co)
+    label = np.arange(n)
+    while True:                                       # connected components: spread the lowest vertex index
+        low = label[tri_verts].min(axis=1)
+        new = label.copy()
+        for k in range(3):
+            np.minimum.at(new, tri_verts[:, k], low)
+        new = new[new]                                # pointer jumping, so long tubes don't take one pass per vertex
+        if np.array_equal(new, label):
+            break
+        label = new
+    lo = np.full((n, 3), np.inf)
+    hi = np.full((n, 3), -np.inf)
+    np.minimum.at(lo, label, co)
+    np.maximum.at(hi, label, co)
+    size = (hi - lo).max(axis=1)
+    return size[label[tri_verts[:, 0]]] >= drop
+
+
+def collect(lod=None):
     """Read nodes and baked meshes from the open source file.
 
     Returns (nodes, baked): nodes = {name: (parent_name, local 4x4 np)},
     baked = list of Baked in node-local coordinates (one per object+material).
+    lod = dict(ratio, min_tris, drop, loose, subsurf, bevel) bakes a lower-detail copy: objects whose largest size is
+    under `drop` metres and loose pieces under `loose` are
+    left out and the rest decimated (_evaluated_mesh). The source file is left as it was.
     """
     nodes, baked = {}, []
     for obj in bpy.data.objects:
@@ -188,14 +258,15 @@ def collect():
             nodes[obj.name] = (par, np.array(m))
     if "BODY" not in nodes:
         nodes["BODY"] = (None, np.eye(4))
-    dg = bpy.context.evaluated_depsgraph_get()
     for obj in bpy.data.objects:
-        if obj.type != "MESH" or obj.hide_render:
+        if obj.type != "MESH" or obj.hide_render or obj.name.startswith("preview_"):   # render()'s floor
+            continue
+        if lod and max(obj.dimensions) < lod["drop"]:
             continue
         node = obj.parent.name if (obj.parent and obj.parent.type == "EMPTY") else "BODY"
         node_world = bpy.data.objects[node].matrix_world if node in bpy.data.objects else Matrix.Identity(4)
         to_local = np.array(node_world.inverted() @ obj.matrix_world)
-        me = bpy.data.meshes.new_from_object(obj.evaluated_get(dg))
+        me = _evaluated_mesh(obj, lod)
         me.calc_loop_triangles()
         nt = len(me.loop_triangles)
         if nt == 0:
@@ -220,6 +291,12 @@ def collect():
         if me.uv_layers.active:
             me.uv_layers.active.data.foreach_get("uv", uv)
         uv = uv.reshape(-1, 2)
+        if lod:
+            keep = _large_parts(vidx[loops.reshape(-1, 3)], co, lod["loose"])
+            loops, tmat = loops.reshape(-1, 3)[keep].reshape(-1), tmat[keep]
+            if not len(tmat):
+                bpy.data.meshes.remove(me)
+                continue
         flip = np.linalg.det(rot) < 0
         for mi in np.unique(tmat):
             sel = loops.reshape(-1, 3)[tmat == mi]
@@ -236,6 +313,24 @@ def collect():
                                inv.reshape(-1, 3).astype(np.int32)))
         bpy.data.meshes.remove(me)
     return nodes, baked
+
+
+def baked_object(name, b, material=None):
+    """A new mesh object (not linked to a scene) holding a Baked mesh in its own coordinates, with its normals and UVs,
+    and `material` (a bpy material; by default the scene's material named b.material, if there is one)."""
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(b.pos.tolist(), [], b.tris.tolist())
+    me.validate()                                     # decimation leaves a few degenerate triangles
+    me.update()
+    loops = np.zeros(len(me.loops), dtype=np.int32)
+    me.loops.foreach_get("vertex_index", loops)
+    uv = me.uv_layers.new(name="UVMap")
+    uv.data.foreach_set("uv", b.uv[loops].reshape(-1))
+    me.normals_split_custom_set(b.nrm[loops].tolist())
+    mat = material or bpy.data.materials.get(b.material)
+    if mat:
+        me.materials.append(mat)
+    return bpy.data.objects.new(name, me)
 
 
 def node_world(nodes, name):

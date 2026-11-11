@@ -38,11 +38,12 @@ kart runs on worn tyres.
 
 Download the archives from the [releases page](https://github.com/albertowd/techspeed-kart/releases).
 
-- **Assetto Corsa:** extract `techspeed-kart-<version>-ac.7z` into your `assettocorsa` folder. It adds six cars,
+- **Assetto Corsa:** extract `techspeed_kart_ac.7z` into your `assettocorsa` folder. It adds six cars,
   `techspeed_rental_*`, to `content/cars`. In the game they are listed as Techspeed Rental.
-- **BeamNG.drive:** put `techspeed-kart-<version>-beamng.zip` as it is in BeamNG's `mods` folder
+- **BeamNG.drive:** put `techspeed_kart_beamng.zip` as it is in BeamNG's `mods` folder
   (`%LOCALAPPDATA%\BeamNG\BeamNG.drive\current\mods`). Pick Techspeed Kart in the vehicle list; the six rentals are
-  its configurations.
+  its configurations. To update, replace the old zip with the new one; if you have `techspeed-kart-0.1.1-beamng.zip`
+  from version 0.1.1, delete it first.
 
 The karts were made for the Techspeed Velopark track, also on overtake.gg.
 
@@ -73,7 +74,7 @@ The karts run in plain Assetto Corsa, but with [Custom Shaders Patch](https://ac
 
 - The physics are a first version, not yet tuned by driving.
 - BeamNG.drive: the steering wheel's direction and the driver camera still need a look.
-- No lower-detail models (LODs) for far-away karts and no damage model.
+- No damage model. In Assetto Corsa the karts have lower-detail models for distance; in BeamNG.drive they don't.
 
 ## Credits
 

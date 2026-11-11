@@ -12,13 +12,13 @@ so a release never ships silent karts.
    the source), and their preview renders (AC preview.jpg, BeamNG thumbnails).
 3. AC cars -> build/ac/content/cars/<car_id>/
 4. BeamNG vehicle -> build/beamng/vehicles/techspeed_kart/
-5. archives -> build/dist/, named with the version from overtake/OVERTAKE.md:
-     techspeed-kart-<version>-ac.7z       content/cars/<4 karts>      (extract into the assettocorsa folder)
-     techspeed-kart-<version>-beamng.zip  vehicles/techspeed_kart/... (drop into BeamNG's mods folder as is)
+5. archives -> build/dist/, with the same names in every version (BeamNG's rule for mod zips: only A-Z a-z 0-9 - _,
+   no version, so an update replaces the old zip in the mods folder; the AC archive follows suit):
+     techspeed_kart_ac.7z       content/cars/<6 karts>      (extract into the assettocorsa folder)
+     techspeed_kart_beamng.zip  vehicles/techspeed_kart/... (drop into BeamNG's mods folder as is)
 Nothing is copied into the games; install the archives by hand.
 """
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -34,11 +34,6 @@ SEVEN_ZIP = shutil.which("7z") or r"C:\Program Files\7-Zip\7z.exe"
 def run(*args):
     print(">", " ".join(args))
     subprocess.run([PY, *args], check=True, cwd=ROOT)
-
-
-def version():
-    m = re.search(r"^Version:\s*(\S+)", open(os.path.join(ROOT, "overtake", "OVERTAKE.md"), encoding="utf-8").read(), re.M)
-    return m.group(1) if m else "dev"
 
 
 def pack(src_root, rel, out):
@@ -73,11 +68,10 @@ def main():
     run(os.path.join(HERE, "export_beamng.py"))
     run(os.path.join(HERE, "render_previews.py"), "--beamng-thumbs")
 
-    ver = version()
     dist = os.path.join(ROOT, "build", "dist")
     os.makedirs(dist, exist_ok=True)
-    ac_out = "techspeed-kart-%s-ac.7z" % ver
-    bng_out = "techspeed-kart-%s-beamng.zip" % ver
+    ac_out = "techspeed_kart_ac.7z"
+    bng_out = "techspeed_kart_beamng.zip"
     for old in os.listdir(dist):                      # keep only this build's two archives
         if old not in (ac_out, bng_out):
             os.remove(os.path.join(dist, old))

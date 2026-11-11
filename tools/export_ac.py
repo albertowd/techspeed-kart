@@ -163,6 +163,34 @@ def split_mesh(pos, nrm, uv, tris, limit=65000):
         start = i
 
 
+# ----------------------------------------------------------------- levels of detail
+# (kn5 suffix, IN, OUT metres from the camera, the reduction blender_bridge.collect bakes it with). The steps follow
+# Kunos' tatuusfa1 (71k, 11.5k, 3.2k, 1.2k triangles): parts smaller than `drop` are left out, the rest decimated.
+# The driver is AC's own driver_80 with its own LODs.
+AC_LODS = [
+    ("", 0, 12, None),
+    ("_LOD_B", 12, 40, dict(subsurf=1, bevel=True, ratio=0.25, min_tris=48, drop=0.025, loose=0.025)),
+    ("_LOD_C", 40, 150, dict(subsurf=0, bevel=False, ratio=0.12, min_tris=400, drop=0.05, loose=0.05)),
+    ("_LOD_D", 150, 1500, dict(subsurf=0, bevel=False, ratio=0.04, min_tris=500, drop=0.25, loose=0.05)),
+]
+
+
+def merge_baked(baked):
+    """One mesh per node and material: the lower LODs are drawn in a few dozen calls instead of ~170."""
+    groups = {}
+    for b in baked:
+        groups.setdefault((b.node, b.material), []).append(b)
+    out = []
+    for (node, mat), parts in groups.items():
+        tris, off = [], 0
+        for b in parts:
+            tris.append(b.tris + off)
+            off += len(b.pos)
+        out.append(bb.Baked("%s_%s" % (node, mat), node, mat, np.vstack([b.pos for b in parts]),
+                            np.vstack([b.nrm for b in parts]), np.vstack([b.uv for b in parts]), np.vstack(tris)))
+    return out
+
+
 # ----------------------------------------------------------------- materials / textures
 # flat colours: AC shades textures as they are, with no gamma, under a strong ambient light: encoded like
 # sRGB (2.2) the black frame (3 %) became a 20 % grey texture and the frame, yokes and column read light grey
@@ -567,7 +595,8 @@ def data_files(car_id, car, hp):
                            ("LOOKAHEAD", [("BASE", 12), ("SPEED_GAIN", 0.9), ("GAS_BRAKE_LOOKAHEAD", 2)]),
                            ("STEER", [("STEER_GAIN", 1.2)]),
                            ("PEDALS", [("GASGAIN", 2.0), ("BRAKE_HINT", 0.95), ("TRAIL_HINT", 0.6)])])
-    files["lods.ini"] = ini([("LOD_0", [("FILE", car_id + ".kn5"), ("IN", 0), ("OUT", 1500)])])
+    files["lods.ini"] = ini([("LOD_%d" % i, [("FILE", car_id + suffix + ".kn5"), ("IN", lo), ("OUT", hi)])
+                             for i, (suffix, lo, hi, _) in enumerate(AC_LODS)])
     files["ambient_shadows.ini"] = ini([("SETTINGS", [("WIDTH", fmt(float(hp["bbox"][1][0] - hp["bbox"][0][0]) / 2 + 0.05)),
                                                       ("LENGTH", fmt(float(hp["bbox"][1][1] - hp["bbox"][0][1]) / 2 + 0.1))])])
     files["blurred_objects.ini"] = ""
@@ -789,6 +818,16 @@ def export(car_id, out_root):
     tex_dir = os.path.join(ROOT, "source", car["source"], "textures")
     k = build_kn5(nodes, baked, y_cog, tex_dir, car_id)
     kn5.write(k, os.path.join(out, car_id + ".kn5"))
+    tris = [sum(len(b.tris) for b in baked)]
+    for suffix, _, _, reduction in AC_LODS[1:]:
+        _, lod_baked = bb.collect(reduction)
+        lod = build_kn5(nodes, merge_baked(lod_baked), y_cog, tex_dir, car_id + suffix)
+        for n, _, _ in kn5.walk(lod.root):          # away from the cockpit AC turns the low-detail wheel
+            if n.name == "STEER_HR":
+                n.name = "STEER_LR"
+        kn5.write(lod, os.path.join(out, car_id + suffix + ".kn5"))
+        tris.append(sum(len(b.tris) for b in lod_baked))
+    print("  LODs: %s triangles" % " / ".join(str(t) for t in tris))
     kn5.write(build_collider(hp, y_cog, family(car["variant"]) == "rental"), os.path.join(out, "collider.kn5"))
 
     has_sfx = sfx(car_id, car, out)
